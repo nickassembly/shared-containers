@@ -1,9 +1,7 @@
 # containers/Tiltfile
 # Orchestrates shared infrastructure: base-dev image, Ollama, future shared services.
 
-# ─────────────────────────────────────────────────────────────
 # Build shared images
-# ─────────────────────────────────────────────────────────────
 
 # Build the base-dev image and tag it for the local registry.
 # Projects' Dockerfiles will use `FROM localhost:5000/base-dev:latest`.
