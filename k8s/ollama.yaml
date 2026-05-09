@@ -1,0 +1,102 @@
+# PersistentVolume — points at your host's Ollama models directory
+# This is what makes the local models visible inside the container
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ollama-models-pv
+  labels:
+    type: local
+    app: ollama
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /home/nickguerra/.ollama
+    type: Directory
+---
+# PersistentVolumeClaim — the deployment uses this to request the volume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models-pvc
+  namespace: shared
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  selector:
+    matchLabels:
+      app: ollama
+---
+# Deployment — runs the Ollama server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: shared
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate    # ensures only one pod uses the volume at a time
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          imagePullPolicy: IfNotPresent    # don't re-pull if image is already local
+          ports:
+            - name: http
+              containerPort: 11434
+              protocol: TCP
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"             # bind to all interfaces inside the pod
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h"                 # keep models loaded in memory longer
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "1"
+            limits:
+              memory: "16Gi"               # adjust based on your model size
+              cpu: "4"
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models-pvc
+---
+# Service — makes Ollama reachable inside the cluster at ollama.shared.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: shared
+  labels:
+    app: ollama
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
+      protocol: TCP
