@@ -1,35 +1,44 @@
+# Base image — Microsoft's official .NET 10 SDK image (Debian-based)
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-RUN apt-get update && apt-get install -y \
-    curl git vim htop tree jq build-essential sudo unzip \
+# System packages and tools
+# Combine into a single RUN to minimize layers and image size
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        git \
+        nano \
+        htop \
+        tree \
+        jq \
+        build-essential \
+        sudo \
+        unzip \
+        ca-certificates \
+        gnupg \
+        procps \
+        iproute2 \
+        openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
-# kubectl only — minikube runs on the WSL2 host, not inside the container.
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
-    && chmod +x kubectl && mv kubectl /usr/local/bin/kubectl
+# Using NodeSource for current LTS. No nvm needed in a container.
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g pnpm
 
-# Non-root user first, then install tools AS that
+# non-root user
 RUN adduser --disabled-password --gecos '' devuser \
     && echo "devuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
-    && mkdir -p /workspace /home/devuser/.kube \
-    && chown -R devuser:devuser /workspace /home/devuser
+    && mkdir -p /workspace \
+    && chown -R devuser:devuser /workspace
 
-# Global pi tooling available in all projects
-RUN npm install -g @mariozechner/pi-coding-agent @mariozechner/pi-tui
-
-# Install nvm + Node inside the container
-ENV NVM_DIR=/root/.nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" \
-    && nvm install --lts \
-    && nvm use --lts \
-    && npm install -g pnpm pi-ai pi-tui
-
+# Switch to non-root user for development
 USER devuser
 WORKDIR /home/devuser
 
-# .NET tools install as devuser
+# .NET global tools install into ~/.dotnet/tools, must be on PATH
 ENV PATH="${PATH}:/home/devuser/.dotnet/tools"
+
 RUN dotnet tool install --global dotnet-ef
 
 WORKDIR /workspace
+CMD ["bash"]

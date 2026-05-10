@@ -11,18 +11,12 @@ docker_build(
     dockerfile='./base-dev/Dockerfile',
 )
 
-# ─────────────────────────────────────────────────────────────
-# Apply shared infrastructure manifests
-# ─────────────────────────────────────────────────────────────
+# apply shared infra manifests
 
 k8s_yaml([
     'k8s/namespace.yaml',
     'k8s/ollama.yaml',
 ])
-
-# ─────────────────────────────────────────────────────────────
-# Resource configuration
-# ─────────────────────────────────────────────────────────────
 
 # Ollama: forward port 11434 to the host so you can curl it directly during dev.
 # After `tilt up`, `curl http://localhost:11434/api/tags` should list your models.
@@ -32,12 +26,14 @@ k8s_resource(
     labels=['shared-infra', 'ai'],
 )
 
-# ─────────────────────────────────────────────────────────────
-# Tilt UI configuration
-# ─────────────────────────────────────────────────────────────
+# Tilt ui config
 
 # Disable analytics (offline-friendly, no telemetry)
 analytics_settings(False)
 
 # Allow this Tiltfile to manage resources only in the 'shared' namespace
 allow_k8s_contexts('k3d-dev')
+
+# supress warning triggered because the image used is not referenced anywhere in k8s
+# base-dev consumers are other Dockerfiles so this warning in not relevant to the current use case
+update_settings(suppress_unused_image_warnings=["localhost:5000/base-dev"])
