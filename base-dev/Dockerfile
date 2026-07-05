@@ -25,13 +25,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && npm install -g pnpm
 
-# non-root user
+# non-root user for development
 RUN adduser --disabled-password --gecos '' devuser \
     && echo "devuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && mkdir -p /workspace \
     && chown -R devuser:devuser /workspace
 
-# Switch to non-root user for development
+# Switch to non-root user 
 USER devuser
 WORKDIR /home/devuser
 
